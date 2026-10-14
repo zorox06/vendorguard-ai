@@ -88,7 +88,7 @@ export default function OverviewPage() {
     </div>
 
     <section className="portfolio-strip" aria-label="Supplier risk distribution">
-      <div className="portfolio-label"><span className="overline">NETWORK HEALTH</span><strong>{low} of {total} suppliers in the low-risk band</strong></div>
+      <div className="portfolio-label"><span className="overline">NETWORK HEALTH</span><strong>{total === 0 ? "No suppliers enrolled" : `${low} of ${total} suppliers in the low-risk band`}</strong></div>
       <div className="portfolio-bar" role="img" aria-label={`${low} low risk, ${watch} on watch, ${high} high risk`}>{riskGroups.map(g=><span key={g.kind} className={g.kind} style={{flex:g.count||0.001}}/>)}</div>
       <div className="portfolio-legend">{riskGroups.map(g=><span key={g.kind}><i className={`dot ${g.kind}`}/>{g.label}<strong>{String(g.count).padStart(2,"0")}</strong></span>)}</div>
     </section>

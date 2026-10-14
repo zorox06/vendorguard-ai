@@ -42,7 +42,9 @@ export function SupplierTable({ suppliers, compact = false }: { suppliers: Suppl
   return <>
     <div className="table-wrap supplier-desktop-table">
       <table className="data-table"><thead><tr><th>Supplier</th><th>Material</th><th>On-time delivery</th><th>Risk score</th><th>Risk level</th>{!compact && <th>External evidence</th>}<th><span className="sr-only">View supplier</span></th></tr></thead>
-        <tbody>{suppliers.map(s => <tr key={s.id}>
+        <tbody>{suppliers.length === 0 ? (
+          <tr><td colSpan={compact ? 6 : 7} style={{ textAlign: "center", padding: "36px 16px", color: "var(--muted)" }}>No suppliers enrolled yet. Use the Import center to onboard suppliers.</td></tr>
+        ) : suppliers.map(s => <tr key={s.id}>
           <td><div className="supplier-cell"><span className="supplier-avatar">{initials(s.legal_name)}</span><div><Link className="supplier-name" href={`/suppliers/${s.id}`}>{s.legal_name}</Link><span className="supplier-location">{s.location}{s.total_due_lines < 10 && <span className="history-note"> · Limited history</span>}</span></div></div></td>
           <td className="supplier-material-cell">{s.materials_supplied.join(", ")}</td>
           <td><span className={s.on_time_rate < .6 ? "negative" : ""}>{(s.on_time_rate * 100).toFixed(0)}%</span></td>
@@ -53,13 +55,17 @@ export function SupplierTable({ suppliers, compact = false }: { suppliers: Suppl
         </tr>)}</tbody>
       </table>
     </div>
-    <div className="mobile-supplier-list">{suppliers.map(s => <article className="mobile-supplier" key={s.id}>
+    <div className="mobile-supplier-list">{suppliers.length === 0 ? (
+      <div className="empty-state" style={{ padding: "24px 16px", textAlign: "center" }}>
+        <strong>No suppliers enrolled</strong>
+        <p>Use the Import center to onboard suppliers.</p>
+      </div>
+    ) : suppliers.map(s => <article className="mobile-supplier" key={s.id}>
       <div className="mobile-supplier-heading"><span className="supplier-avatar">{initials(s.legal_name)}</span><div><Link href={`/suppliers/${s.id}`}>{s.legal_name}</Link><span>{s.location}</span></div><Badge kind={s.band}>{riskLabel(s.band)}</Badge></div>
       <p>{s.materials_supplied.join(", ")}</p>
       <div className="mobile-supplier-metrics"><div><span>On time</span><strong>{Math.round(s.on_time_rate * 100)}%</strong></div><div><span>Risk index</span><strong>{s.blended_risk_R.toFixed(1)}{s.excluded_factors?.length ? <small> · Partial</small> : null}</strong></div><Link href={`/suppliers/${s.id}`} className="text-link">Inspect <ArrowUpRight size={13} /></Link></div>
       {!compact && <div className="mobile-supplier-evidence">{evidenceLabel(s.external_status)} · {s.total_due_lines < 10 ? "Limited history" : `${s.total_due_lines} due lines`}</div>}
     </article>)}</div>
-    {suppliers.length === 0 && <Empty title="No matching suppliers" description="Try another supplier name, material, or risk filter." />}
   </>;
 }
 

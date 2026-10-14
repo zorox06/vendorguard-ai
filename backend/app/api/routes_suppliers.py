@@ -38,10 +38,7 @@ def list_suppliers(tenant_id: str = DEFAULT_TENANT_ID, db: Session = Depends(get
     )
 
     if not suppliers:
-        # Fallback if DB empty
-        from backend.app.adapters.seed_db import seed_database
-        seed_database(db=db)
-        suppliers = db.query(Supplier).filter(Supplier.tenant_id == tenant_id).all()
+        return []
 
     results = []
     for s in suppliers:
