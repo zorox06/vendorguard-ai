@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vendorguard-db
+    environment:
+      POSTGRES_USER: vendorguard
+      POSTGRES_PASSWORD: vendorguard_secret_password
+      POSTGRES_DB: vendorguard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vendorguard -d vendorguard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: vendorguard-api
+    command: ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://vendorguard:vendorguard_secret_password@db:5432/vendorguard
+      ASYNC_DATABASE_URL: postgresql+asyncpg://vendorguard:vendorguard_secret_password@db:5432/vendorguard
+      PYTHONPATH: .
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: vendorguard-worker
+    command: ["python", "-m", "backend.worker"]
+    environment:
+      DATABASE_URL: postgresql://vendorguard:vendorguard_secret_password@db:5432/vendorguard
+      PYTHONPATH: .
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: vendorguard-web
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

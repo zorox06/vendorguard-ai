@@ -17,6 +17,10 @@ from backend.app.api.routes_replay import router as replay_router
 async def lifespan(app: FastAPI):
     # Initialize SQLite database schema
     init_db()
+    import os
+    if os.getenv("SEED_DEMO_DATA", "").lower() in ("true", "1"):
+        from backend.app.adapters.seed_db import seed_database
+        seed_database()
     yield
 
 

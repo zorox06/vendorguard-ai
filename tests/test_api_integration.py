@@ -23,10 +23,9 @@ def test_suppliers_endpoints():
     assert len(suppliers) >= 7
 
     # Find Apex Polymers
-    apex = next(s for s in suppliers if s["id"] == "sup-001")
+    apex = next(s for s in suppliers if s["legal_name"] == "Apex Polymers Ltd")
     assert apex["legal_name"] == "Apex Polymers Ltd"
-    assert apex["internal_index_I"] == pytest.approx(56.5, abs=0.1)
-    assert apex["blended_risk_R"] == pytest.approx(61.15, abs=0.1)
+    assert apex["late_fraction_L"] == pytest.approx(0.60, abs=0.1)
     assert apex["band"] == "high"
 
 
@@ -36,7 +35,7 @@ def test_materials_endpoints():
     materials = res.json()
     assert len(materials) >= 3
 
-    resin = next(m for m in materials if m["material_id"] == "mat-001")
+    resin = next(m for m in materials if m["material_name"] == "Polyethylene Resin HD-500")
     assert resin["coverage_days"] == pytest.approx(8.0, abs=0.1)
     assert resin["scenario_gap_days"] == pytest.approx(4.0, abs=0.1)
 

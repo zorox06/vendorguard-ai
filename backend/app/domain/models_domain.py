@@ -42,7 +42,7 @@ class OrderLineRecord:
     ordered_quantity: float
     unit: str
     committed_due_date: date
-    created_at: datetime
+    created_at: Optional[datetime] = None
     # Revisions / versions can alter committed_due_date
     version_id: Optional[str] = None
 
@@ -54,7 +54,7 @@ class ReceiptRecord:
     accepted_quantity: float
     rejected_quantity: float
     received_at: datetime
-    recorded_at: datetime
+    recorded_at: Optional[datetime] = None
 
 
 @dataclass
@@ -63,15 +63,20 @@ class EvidenceItemRecord:
     supplier_id: str
     source_url: str
     published_at: datetime
-    fetched_at: datetime
     event_type: str
     entity_match: str  # 'verified', 'ambiguous', 'unrelated'
-    source_quality: str
     severity: float  # [0.0, 1.0]
     reliability_factor: float  # [0.0, 1.0]
     freshness_factor: float  # [0.0, 1.0]
     supporting_excerpt: str
+    publisher: str = "Verified Source"
+    fetched_at: Optional[datetime] = None
+    source_quality: str = "primary_or_verified_report"
     is_synthetic: bool = True
+
+    @property
+    def id(self) -> str:
+        return self.evidence_id
 
 
 @dataclass

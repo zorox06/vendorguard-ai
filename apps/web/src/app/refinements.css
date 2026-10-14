@@ -1,4 +1,11 @@
 /* Optical and readability adjustments shared by the operating workspace. */
+.page-enter { min-width: 0; width: 100%; }
+.page-stack { grid-template-columns: minmax(0, 1fr); }
+.overview-heading, .overview-heading > div, .portfolio-strip > div { min-width: 0; }
+.table-wrap { min-width: 0; max-width: 100%; }
+.portfolio-legend { flex-wrap: wrap; }
+.key-value > * { min-width: 0; overflow-wrap: anywhere; }
+.stat-value { overflow-wrap: anywhere; }
 :root { --muted: #717969; }
 .overview-heading h1 { font-size: 36px; letter-spacing: -1.8px; line-height: 1.28; }
 .overview-heading { padding: 4px 0 7px; align-items: flex-end; }
@@ -76,6 +83,8 @@
   .filter-tab { min-height: 35px; }
 }
 @media (max-width: 460px) {
+  .overview-heading { align-items: stretch; }
+  .overview-heading > div { width: 100%; }
   .overview-heading h1 { font-size: 37px; max-width: 340px; letter-spacing: -2px; }
   .overview-heading h1 > span { display: block; }
   .overview-heading-right { align-items: center; width: 100%; }

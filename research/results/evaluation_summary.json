@@ -1,0 +1,80 @@
+{
+  "evaluation_date": "2026-10-14T08:50:33.321027+00:00",
+  "tenant_id": "tenant-default",
+  "total_suppliers": 15,
+  "total_eligible_incidents": 10,
+  "total_supplier_months_observed": 90,
+  "warning_horizon_days": 14,
+  "baselines": [
+    {
+      "system": "B0",
+      "name": "Simple Overdue Rule",
+      "inputs": "Current order status (overdue lines)",
+      "alert_episode_precision": 0.11,
+      "incident_recall": 0.1,
+      "warning_lead_time_days": 0.0,
+      "false_alert_burden": 0.09,
+      "actionable_recall": 0.0,
+      "top_k_agreement": 0.41,
+      "total_alerts_emitted": 9,
+      "true_alert_episodes": 1,
+      "matched_disruptions": 1
+    },
+    {
+      "system": "B1",
+      "name": "Internal-Only Policy",
+      "inputs": "Historical operational indicators (L, D, T, F)",
+      "alert_episode_precision": 0.07,
+      "incident_recall": 0.3,
+      "warning_lead_time_days": 6.7,
+      "false_alert_burden": 0.43,
+      "actionable_recall": 0.2,
+      "top_k_agreement": 0.68,
+      "total_alerts_emitted": 42,
+      "true_alert_episodes": 3,
+      "matched_disruptions": 3
+    },
+    {
+      "system": "B2",
+      "name": "External-Only Policy",
+      "inputs": "Verified public events alone",
+      "alert_episode_precision": 0.0,
+      "incident_recall": 0.0,
+      "warning_lead_time_days": 0.0,
+      "false_alert_burden": 0.02,
+      "actionable_recall": 0.0,
+      "top_k_agreement": 0.51,
+      "total_alerts_emitted": 2,
+      "true_alert_episodes": 0,
+      "matched_disruptions": 0
+    },
+    {
+      "system": "P1",
+      "name": "Combined Policy",
+      "inputs": "Internal history + Bounded external events (R)",
+      "alert_episode_precision": 0.07,
+      "incident_recall": 0.3,
+      "warning_lead_time_days": 6.7,
+      "false_alert_burden": 0.43,
+      "actionable_recall": 0.2,
+      "top_k_agreement": 0.79,
+      "total_alerts_emitted": 42,
+      "true_alert_episodes": 3,
+      "matched_disruptions": 3
+    },
+    {
+      "system": "P2",
+      "name": "Impact-Aware Prioritization",
+      "inputs": "P1 + Material Exposure Simulation (B[d])",
+      "alert_episode_precision": 0.07,
+      "incident_recall": 0.3,
+      "warning_lead_time_days": 6.7,
+      "false_alert_burden": 0.43,
+      "actionable_recall": 0.2,
+      "top_k_agreement": 0.92,
+      "total_alerts_emitted": 42,
+      "true_alert_episodes": 3,
+      "matched_disruptions": 3
+    }
+  ]
+}

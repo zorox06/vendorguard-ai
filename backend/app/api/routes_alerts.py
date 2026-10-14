@@ -1,88 +1,30 @@
-"""Alerts and Feedback REST routes."""
+"""Alerts and Feedback REST routes for VendorGuard AI.
 
-from fastapi import APIRouter, HTTPException
+Implements Sections 12 & 13 of the Blueprint:
+- Database-backed alert listing and triage
+- Grounded explanation with citation chips
+- Alert state machine: open -> acknowledged -> resolved / dismissed
+- Reviewer feedback recording stored separately from ground truth labels
+"""
+
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
+from sqlalchemy.orm import Session
+
+from backend.app.adapters.storage import get_sync_session
+from backend.app.models.schema import Alert, AlertFeedback, Assessment, Supplier
 
 router = APIRouter(prefix="/api/alerts", tags=["Alerts"])
 
-DEMO_ALERTS = [
-    {
-        "id": "alt-001",
-        "supplier_id": "sup-001",
-        "supplier_name": "Apex Polymers Ltd",
-        "material_name": "Polyethylene Resin HD-500",
-        "incident_key": "apex-polymers-facility-delay-2026-10",
-        "severity": "critical",
-        "status": "open",
-        "created_at": "2026-10-09T14:32:00Z",
-        "grounded_explanation": {
-            "summary": "Supplier Apex Polymers' recent late fraction is 60%, and average completed delay rose from 2 to 6 days. One verified facility interruption contributes external evidence (E=72.0, R=61.15). Available resin covers 8 days at 100 kg/day. Under declared 12-day replenishment, a 4-day supply gap appears.",
-            "drivers": [
-                {"metric": "late_fraction_L", "label": "Late Fraction (L)", "value": "60.0%", "benchmark": "< 30%"},
-                {"metric": "delay_trend_T", "label": "Completed Delay Rise", "value": "2.0d -> 6.0d", "benchmark": "Stable <= 2d"},
-                {"metric": "blended_risk_R", "label": "Blended Risk Index (R)", "value": "61.15", "benchmark": "High Band >= 60"},
-            ],
-            "evidence_ids": ["ev-demo-001"],
-            "evidence_excerpt": "Chemical industry update: regional supply disruption at feedstock crackers affecting resin pellet extrusion.",
-            "evidence_source": "Petrochem Daily Bulletin (Verified Fixture)",
-            "evidence_date": "2026-09-20",
-            "impact_assumptions": {
-                "material": "Polyethylene Resin HD-500",
-                "available_stock": 800,
-                "daily_burn": 100,
-                "coverage_days": 8.0,
-                "scenario_arrival_days": 12.0,
-                "supply_gap_days": 4.0,
-            },
-            "suggested_actions": [
-                "Confirm shipment status for open PO-2026-8802 immediately.",
-                "Review approved backup supplier Delta Resins (normal lead time: 5 days).",
-                "Reserve 200 kg buffer from secondary extrusion schedule if delay exceeds 4 days.",
-            ],
-            "limitations": "External news is synthetic demonstration data. Inventory model assumes constant 100 kg/day demand.",
-        },
-    },
-    {
-        "id": "alt-002",
-        "supplier_id": "sup-003",
-        "supplier_name": "FlexiFilm Global",
-        "material_name": "High Barrier PVDC Film 25um",
-        "incident_key": "flexifilm-trend-watch-2026-10",
-        "severity": "watch",
-        "status": "open",
-        "created_at": "2026-10-09T14:32:00Z",
-        "grounded_explanation": {
-            "summary": "FlexiFilm shows gradual operational decline with 45% late fraction and delay increasing to 4 days. No external news detected (evidence-limited score R=40.25). Film stock covers 10 days with a 4-day stress gap.",
-            "drivers": [
-                {"metric": "late_fraction_L", "label": "Late Fraction (L)", "value": "45.0%", "benchmark": "< 30%"},
-                {"metric": "single_source", "label": "Sole Source Vulnerability", "value": "Single Supplier", "benchmark": "No backup"},
-            ],
-            "evidence_ids": [],
-            "impact_assumptions": {
-                "material": "High Barrier PVDC Film 25um",
-                "available_stock": 100,
-                "daily_burn": 10,
-                "coverage_days": 10.0,
-                "scenario_arrival_days": 14.0,
-                "supply_gap_days": 4.0,
-            },
-            "suggested_actions": [
-                "Inquire with FlexiFilm production lead on upcoming slit rolls schedule.",
-                "Begin pre-qualification testing for alternate barrier film suppliers.",
-            ],
-            "limitations": "Sole source dependency increases actual operational exposure beyond internal delivery index alone.",
-        },
-    },
-]
-
-FEEDBACK_STORE: List[Dict[str, Any]] = []
+DEFAULT_TENANT_ID = "tenant-default"
 
 
 class AlertUpdatePayload(BaseModel):
     status: str
     reason: Optional[str] = None
+    actor: Optional[str] = "purchasing_manager"
 
 
 class FeedbackPayload(BaseModel):
@@ -92,37 +34,121 @@ class FeedbackPayload(BaseModel):
 
 
 @router.get("")
-def list_alerts():
-    return DEMO_ALERTS
+def list_alerts(
+    status_filter: Optional[str] = None,
+    tenant_id: str = DEFAULT_TENANT_ID,
+    db: Session = Depends(get_sync_session),
+):
+    """Returns alerts requiring attention, sorted by priority."""
+    query = (
+        db.query(Alert)
+        .filter(Alert.tenant_id == tenant_id)
+        .order_by(Alert.created_at.desc())
+    )
+    if status_filter:
+        query = query.filter(Alert.status == status_filter)
+
+    alerts = query.all()
+    results = []
+    for a in alerts:
+        sup_name = "Supplier"
+        mat_name = "Packaging Material"
+        sup_id = ""
+        if a.assessment and a.assessment.supplier:
+            sup_name = a.assessment.supplier.legal_name
+            sup_id = a.assessment.supplier.id
+            if a.assessment.supplier.materials:
+                mat_name = a.assessment.supplier.materials[0].material.name
+
+        expl = a.grounded_explanation or {}
+        results.append({
+            "id": a.id,
+            "supplier_id": sup_id,
+            "supplier_name": sup_name,
+            "material_name": expl.get("impact_assumptions", {}).get("material", mat_name),
+            "incident_key": a.incident_key,
+            "severity": a.severity,
+            "status": a.status,
+            "created_at": a.created_at.isoformat() if a.created_at else datetime.now(timezone.utc).isoformat(),
+            "acknowledged_at": a.acknowledged_at.isoformat() if a.acknowledged_at else None,
+            "acknowledged_by": a.acknowledged_by,
+            "grounded_explanation": expl,
+            "feedback_count": len(a.feedback),
+        })
+
+    return results
 
 
 @router.get("/{alert_id}")
-def get_alert(alert_id: str):
-    for a in DEMO_ALERTS:
-        if a["id"] == alert_id:
-            return a
-    raise HTTPException(status_code=404, detail="Alert not found")
+def get_alert(alert_id: str, db: Session = Depends(get_sync_session)):
+    """Returns detailed alert record."""
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    sup_name = "Supplier"
+    sup_id = ""
+    if alert.assessment and alert.assessment.supplier:
+        sup_name = alert.assessment.supplier.legal_name
+        sup_id = alert.assessment.supplier.id
+
+    expl = alert.grounded_explanation or {}
+    return {
+        "id": alert.id,
+        "supplier_id": sup_id,
+        "supplier_name": sup_name,
+        "material_name": expl.get("impact_assumptions", {}).get("material", "Packaging Material"),
+        "incident_key": alert.incident_key,
+        "severity": alert.severity,
+        "status": alert.status,
+        "created_at": alert.created_at.isoformat() if alert.created_at else None,
+        "acknowledged_at": alert.acknowledged_at.isoformat() if alert.acknowledged_at else None,
+        "acknowledged_by": alert.acknowledged_by,
+        "grounded_explanation": expl,
+        "feedbacks": [
+            {
+                "id": f.id,
+                "reviewer_id": f.reviewer_id,
+                "disposition": f.disposition,
+                "reason": f.reason,
+                "created_at": f.created_at.isoformat(),
+            }
+            for f in alert.feedback
+        ],
+    }
 
 
 @router.patch("/{alert_id}")
-def update_alert(alert_id: str, payload: AlertUpdatePayload):
-    for a in DEMO_ALERTS:
-        if a["id"] == alert_id:
-            a["status"] = payload.status
-            a["acknowledged_at"] = datetime.utcnow().isoformat()
-            a["acknowledged_by"] = "purchasing_lead"
-            return a
-    raise HTTPException(status_code=404, detail="Alert not found")
+def update_alert(alert_id: str, payload: AlertUpdatePayload, db: Session = Depends(get_sync_session)):
+    """Updates alert status (acknowledged, resolved, dismissed)."""
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    alert.status = payload.status
+    if payload.status in ["acknowledged", "resolved"]:
+        alert.acknowledged_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        alert.acknowledged_by = payload.actor or "purchasing_manager"
+
+    db.commit()
+    db.refresh(alert)
+    return {"id": alert.id, "status": alert.status, "acknowledged_at": alert.acknowledged_at.isoformat() if alert.acknowledged_at else None}
 
 
 @router.post("/{alert_id}/feedback")
-def submit_feedback(alert_id: str, payload: FeedbackPayload):
-    item = {
-        "alert_id": alert_id,
-        "reviewer_id": payload.reviewer_id,
-        "disposition": payload.disposition,
-        "reason": payload.reason,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-    FEEDBACK_STORE.append(item)
-    return {"status": "recorded", "feedback": item}
+def submit_feedback(alert_id: str, payload: FeedbackPayload, db: Session = Depends(get_sync_session)):
+    """Records human usefulness feedback on an alert."""
+    alert = db.query(Alert).filter(Alert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+
+    feedback = AlertFeedback(
+        alert_id=alert.id,
+        reviewer_id=payload.reviewer_id,
+        disposition=payload.disposition,
+        reason=payload.reason,
+    )
+    db.add(feedback)
+    db.commit()
+    db.refresh(feedback)
+    return {"status": "recorded", "feedback_id": feedback.id, "disposition": feedback.disposition}

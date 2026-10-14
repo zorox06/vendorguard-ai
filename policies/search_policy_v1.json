@@ -1,0 +1,38 @@
+{
+  "policy_name": "VendorGuard Bounded Retrieval and Entity Verification Policy",
+  "version": "v1.0.0",
+  "effective_date": "2026-10-01",
+  "max_queries_per_supplier": 2,
+  "max_followup_queries": 1,
+  "top_k_results": 5,
+  "cache_ttl_hours": 24,
+  "retrieval_window_days": 60,
+  "query_templates": [
+    "{legal_name} supply chain disruption facility strike fire shutdown",
+    "{domain} insolvency bankruptcy restructuring logistics delay"
+  ],
+  "permitted_event_categories": [
+    "facility_interruption",
+    "transport_disruption",
+    "insolvency_restructuring",
+    "regulatory_action",
+    "labor_dispute"
+  ],
+  "entity_match_rules": {
+    "verified": "Legal name or domain matched with matching primary operating location",
+    "ambiguous": "Partial name match or multiple regional entities without verified location",
+    "unrelated": "Same-name corporate entity operating in unrelated industry or geography"
+  },
+  "deduplication": {
+    "group_by": "event_type_and_location",
+    "score_aggregation": "max_supported_event_score",
+    "reject_syndicated_repetition": true
+  },
+  "external_status_codes": [
+    "reliable_evidence",
+    "no_relevant_evidence",
+    "ambiguous_entity",
+    "unavailable",
+    "stale"
+  ]
+}

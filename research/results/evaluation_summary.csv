@@ -1,0 +1,6 @@
+system,name,inputs,alert_episode_precision,incident_recall,warning_lead_time_days,false_alert_burden,actionable_recall,top_k_agreement,total_alerts_emitted,true_alert_episodes
+B0,Simple Overdue Rule,Current order status (overdue lines),0.11,0.1,0.0,0.09,0.0,0.41,9,1
+B1,Internal-Only Policy,"Historical operational indicators (L, D, T, F)",0.07,0.3,6.7,0.43,0.2,0.68,42,3
+B2,External-Only Policy,Verified public events alone,0.0,0.0,0.0,0.02,0.0,0.51,2,0
+P1,Combined Policy,Internal history + Bounded external events (R),0.07,0.3,6.7,0.43,0.2,0.79,42,3
+P2,Impact-Aware Prioritization,P1 + Material Exposure Simulation (B[d]),0.07,0.3,6.7,0.43,0.2,0.92,42,3

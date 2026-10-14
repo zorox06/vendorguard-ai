@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, ShieldCheck, AlertTriangle, Package, Clock, Users, Bell, SlidersHorizontal } from "lucide-react";
 import { useData } from "@/components/DataProvider";
-import { Panel, Stat, Badge, SupplierTable, FilterTabs, GoLink, MonitoringButton, Notice, SearchField } from "@/components/ui/Workspace";
+import { Panel, Stat, Badge, SupplierTable, FilterTabs, GoLink, MonitoringButton, Notice, SearchField, RunProgress } from "@/components/ui/Workspace";
 
 const shortMaterial = (name: string) => name
   .replace("High Barrier PVDC Film 25um", "PVDC barrier film")
@@ -48,6 +48,7 @@ export default function OverviewPage() {
       </div>
     </div>
     {message && <Notice kind={error ? "error" : "success"}>{message}</Notice>}
+    <RunProgress />
 
     <div className="stats-grid overview-stats">
       <Stat label="Suppliers monitored" value={String(total).padStart(2,"0")} icon={<Users />} detail={<><span className="dot positive" /> Across your supply network</>} />

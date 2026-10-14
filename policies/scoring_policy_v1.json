@@ -1,0 +1,42 @@
+{
+  "policy_name": "VendorGuard Standard Scoring Policy",
+  "version": "v1.0.0",
+  "effective_date": "2026-10-01",
+  "base_weights": {
+    "L": 0.40,
+    "D": 0.25,
+    "T": 0.20,
+    "F": 0.15
+  },
+  "scaling_parameters": {
+    "delay_scale_days": 10.0,
+    "trend_scale_days": 5.0,
+    "recent_window_days": 30,
+    "previous_window_days": 30
+  },
+  "cold_start": {
+    "min_due_lines": 10,
+    "behavior_below_threshold": "renormalize_and_label_partial"
+  },
+  "blended_weights": {
+    "internal_weight": 0.70,
+    "external_weight": 0.30,
+    "floor_rule": "R = max(I, 0.70 * I + 0.30 * E)"
+  },
+  "risk_bands": {
+    "low": { "min": 0.0, "max": 29.99 },
+    "watch": { "min": 30.0, "max": 59.99 },
+    "high": { "min": 60.0, "max": 100.0 }
+  },
+  "critical_event_override": {
+    "enabled": true,
+    "min_severity": 0.75,
+    "action": "force_band_high_and_emit_evidence_alert",
+    "event_types": [
+      "facility_interruption",
+      "insolvency_restructuring",
+      "regulatory_shutdown",
+      "force_majeure"
+    ]
+  }
+}

@@ -7,7 +7,7 @@ Implements Sections 7 & 14 data dictionary:
 """
 
 import uuid
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional, List, Any, Dict
 from sqlalchemy import (
     String,
@@ -25,6 +25,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 def generate_uuid() -> str:
     return str(uuid.uuid4())
 
@@ -38,7 +42,7 @@ class Tenant(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_uuid)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     suppliers: Mapped[List["Supplier"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
     materials: Mapped[List["Material"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
@@ -55,7 +59,7 @@ class Supplier(Base):
     domain: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     registration_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="suppliers")
     materials: Mapped[List["SupplierMaterial"]] = relationship(back_populates="supplier")
@@ -75,7 +79,7 @@ class Material(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     canonical_unit: Mapped[str] = mapped_column(String(32), nullable=False)  # kg, rolls, units
     criticality: Mapped[str] = mapped_column(String(32), nullable=False)  # tier_1, tier_2, tier_3
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="materials")
     suppliers: Mapped[List["SupplierMaterial"]] = relationship(back_populates="material")
@@ -117,7 +121,7 @@ class PurchaseOrderLine(Base):
     ordered_quantity: Mapped[float] = mapped_column(Float, nullable=False)
     unit: Mapped[str] = mapped_column(String(32), default="kg")
     committed_due_date: Mapped[date] = mapped_column(Date, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     supplier: Mapped["Supplier"] = relationship(back_populates="order_lines")
     receipts: Mapped[List["Receipt"]] = relationship(back_populates="order_line", cascade="all, delete-orphan")
@@ -136,8 +140,8 @@ class OrderLineVersion(Base):
     po_line_id: Mapped[str] = mapped_column(String(64), ForeignKey("purchase_order_lines.id"), nullable=False, index=True)
     committed_due_date: Mapped[date] = mapped_column(Date, nullable=False)
     ordered_quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    valid_from: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    valid_from: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     order_line: Mapped["PurchaseOrderLine"] = relationship(back_populates="versions")
 
@@ -150,7 +154,7 @@ class Receipt(Base):
     accepted_quantity: Mapped[float] = mapped_column(Float, nullable=False)
     rejected_quantity: Mapped[float] = mapped_column(Float, default=0.0)
     received_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     order_line: Mapped["PurchaseOrderLine"] = relationship(back_populates="receipts")
 
@@ -165,7 +169,7 @@ class InventorySnapshot(Base):
     on_hand_quantity: Mapped[float] = mapped_column(Float, nullable=False)
     reserved_quantity: Mapped[float] = mapped_column(Float, default=0.0)
     observed_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     material: Mapped["Material"] = relationship(back_populates="inventory_snapshots")
 
@@ -182,7 +186,7 @@ class DemandForecast(Base):
     material_id: Mapped[str] = mapped_column(String(64), ForeignKey("materials.id"), nullable=False, index=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     daily_quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    forecast_as_of: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    forecast_as_of: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     material: Mapped["Material"] = relationship(back_populates="demand_forecasts")
 
@@ -192,13 +196,13 @@ class MonitoringRun(Base):
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_uuid)
     tenant_id: Mapped[str] = mapped_column(String(64), ForeignKey("tenants.id"), nullable=False, index=True)
-    as_of: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    as_of: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     status: Mapped[str] = mapped_column(String(32), default="pending")  # pending, leased, running, completed, failed
     lease_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
     summary_counts: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     tenant: Mapped["Tenant"] = relationship(back_populates="monitoring_runs")
@@ -217,7 +221,7 @@ class EvidenceItem(Base):
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
     publisher: Mapped[str] = mapped_column(String(255), nullable=False)
     published_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     entity_match: Mapped[str] = mapped_column(String(32), default="verified")  # verified, ambiguous, unrelated
     source_quality: Mapped[str] = mapped_column(String(64), default="primary_or_verified_report")
@@ -241,7 +245,7 @@ class Assessment(Base):
     index_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     band: Mapped[str] = mapped_column(String(32), default="low")  # low, watch, high
     impact_summary: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     supplier: Mapped["Supplier"] = relationship(back_populates="assessments")
     run: Mapped["MonitoringRun"] = relationship(back_populates="assessments")
@@ -275,7 +279,7 @@ class Alert(Base):
     severity: Mapped[str] = mapped_column(String(32), default="high")  # low, medium, high, critical
     status: Mapped[str] = mapped_column(String(32), default="open")  # open, acknowledged, resolved, dismissed
     grounded_explanation: Mapped[Dict[str, Any]] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
     acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     acknowledged_by: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
@@ -295,6 +299,6 @@ class AlertFeedback(Base):
     reviewer_id: Mapped[str] = mapped_column(String(128), default="purchasing_manager")
     disposition: Mapped[str] = mapped_column(String(64), nullable=False)  # useful, false_alarm, unhelpful
     reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
 
     alert: Mapped["Alert"] = relationship(back_populates="feedback")

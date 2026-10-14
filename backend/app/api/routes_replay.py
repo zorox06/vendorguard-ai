@@ -1,11 +1,21 @@
-"""Research Replay and Evaluation REST routes."""
+"""Research Replay and Evaluation REST routes for VendorGuard AI.
 
+Implements Section 15 of the Blueprint:
+- Dynamic chronological backtesting endpoint
+- Compares B0, B1, B2, P1, and P2
+- Serves evaluation summaries from disk or fresh execution
+"""
+
+import os
+import json
 from fastapi import APIRouter
 from typing import List, Dict, Any
 
+from research.replay.replay_engine import ChronologicalReplayHarness, RESULTS_DIR
+
 router = APIRouter(prefix="/api/replay", tags=["Research Replay"])
 
-REPLAY_BASELINES = [
+DEFAULT_BASELINES = [
     {
         "system": "B0",
         "name": "Simple Overdue Rule",
@@ -66,4 +76,21 @@ REPLAY_BASELINES = [
 
 @router.get("/baselines")
 def get_baselines():
-    return REPLAY_BASELINES
+    """Returns baseline comparisons from research replay."""
+    json_path = os.path.join(RESULTS_DIR, "evaluation_summary.json")
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("baselines", DEFAULT_BASELINES)
+        except Exception:
+            pass
+    return DEFAULT_BASELINES
+
+
+@router.post("/run")
+def trigger_replay():
+    """Triggers an on-demand chronological replay across historical splits."""
+    harness = ChronologicalReplayHarness()
+    results = harness.run_replay()
+    return results

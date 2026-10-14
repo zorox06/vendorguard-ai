@@ -1,92 +1,132 @@
-"""Materials and Inventory Exposure REST routes."""
+"""Materials and Inventory Exposure REST routes for VendorGuard AI.
 
-from fastapi import APIRouter
+Implements Sections 11 & 13 of the Blueprint:
+- Real database querying of materials, inventory on-hand, and burn rates
+- Dynamic daily inventory simulation B[d] base vs stress delay
+- Stockout day prediction and qualified alternative suppliers
+"""
+
+from fastapi import APIRouter, Depends
 from typing import List, Dict, Any
+from datetime import datetime, date, timezone
+from sqlalchemy.orm import Session
+
+from backend.app.adapters.storage import get_sync_session
+from backend.app.models.schema import Material, InventorySnapshot, DemandForecast, SupplierMaterial, Supplier
+from backend.app.domain.impact import evaluate_material_exposure
+from backend.app.domain.models_domain import MaterialCriticality
 
 router = APIRouter(prefix="/api/materials", tags=["Materials"])
 
-DEMO_MATERIALS = [
-    {
-        "material_id": "mat-001",
-        "material_name": "Polyethylene Resin HD-500",
-        "criticality": "tier_1",
-        "unit": "kg",
-        "on_hand_stock": 800,
-        "reserved_stock": 0,
-        "available_stock": 800,
-        "daily_consumption": 100,
-        "coverage_days": 8.0,
-        "scenario_arrival_days": 12.0,
-        "scenario_gap_days": 4.0,
-        "day_to_stockout": 9,
-        "primary_supplier": "Apex Polymers Ltd",
-        "has_alternate_supplier": True,
-        "alternate_suppliers": [
-            {"name": "Delta Resins & Chemicals", "lead_time_days": 5, "approved": True},
-            {"name": "NovaPlast Resins Corp", "lead_time_days": 7, "approved": True},
-        ],
-        "trajectory_base": [
-            {"day": i + 1, "date_str": f"2026-10-{i+10:02d}", "balance": 800 + (1000 if i >= 7 else 0) - (i + 1) * 100, "is_stockout": False}
-            for i in range(30)
-        ],
-        "trajectory_stress": [
-            {"day": i + 1, "date_str": f"2026-10-{i+10:02d}", "balance": 800 + (1000 if i >= 13 else 0) - (i + 1) * 100, "is_stockout": (800 + (1000 if i >= 13 else 0) - (i + 1) * 100) < 0}
-            for i in range(30)
-        ],
-    },
-    {
-        "material_id": "mat-002",
-        "material_name": "High Barrier PVDC Film 25um",
-        "criticality": "tier_1",
-        "unit": "rolls",
-        "on_hand_stock": 120,
-        "reserved_stock": 20,
-        "available_stock": 100,
-        "daily_consumption": 10,
-        "coverage_days": 10.0,
-        "scenario_arrival_days": 14.0,
-        "scenario_gap_days": 4.0,
-        "day_to_stockout": 11,
-        "primary_supplier": "FlexiFilm Global",
-        "has_alternate_supplier": False,
-        "alternate_suppliers": [],
-        "trajectory_base": [
-            {"day": i + 1, "date_str": f"2026-10-{i+10:02d}", "balance": max(0, 100 - (i + 1) * 10 + (150 if i >= 9 else 0)), "is_stockout": False}
-            for i in range(30)
-        ],
-        "trajectory_stress": [
-            {"day": i + 1, "date_str": f"2026-10-{i+10:02d}", "balance": 100 - (i + 1) * 10 + (150 if i >= 15 else 0), "is_stockout": (100 - (i + 1) * 10 + (150 if i >= 15 else 0)) < 0}
-            for i in range(30)
-        ],
-    },
-    {
-        "material_id": "mat-003",
-        "material_name": "White Masterbatch MB-01",
-        "criticality": "tier_2",
-        "unit": "kg",
-        "on_hand_stock": 450,
-        "reserved_stock": 50,
-        "available_stock": 400,
-        "daily_consumption": 25,
-        "coverage_days": 16.0,
-        "scenario_arrival_days": 12.0,
-        "scenario_gap_days": 0.0,
-        "day_to_stockout": None,
-        "primary_supplier": "ChromaColor Labs",
-        "has_alternate_supplier": True,
-        "alternate_suppliers": [{"name": "Spectrum Pigments", "lead_time_days": 4, "approved": True}],
-        "trajectory_base": [
-            {"day": i + 1, "date_str": f"2026-10-{i+10:02d}", "balance": 400 - (i + 1) * 25 + (300 if i >= 9 else 0), "is_stockout": False}
-            for i in range(30)
-        ],
-        "trajectory_stress": [
-            {"day": i + 1, "date_str": f"2026-10-{i+10:02d}", "balance": 400 - (i + 1) * 25 + (300 if i >= 15 else 0), "is_stockout": False}
-            for i in range(30)
-        ],
-    },
-]
+DEFAULT_TENANT_ID = "tenant-default"
 
 
 @router.get("")
-def list_materials():
-    return DEMO_MATERIALS
+def list_materials(tenant_id: str = DEFAULT_TENANT_ID, db: Session = Depends(get_sync_session)):
+    """Returns materials with inventory coverage and 30-day simulation trajectories."""
+    materials = (
+        db.query(Material)
+        .filter(Material.tenant_id == tenant_id)
+        .order_by(Material.name.asc())
+        .all()
+    )
+
+    results = []
+    start_d = date(2026, 10, 10)
+
+    for m in materials:
+        # Latest snapshot
+        snap = (
+            db.query(InventorySnapshot)
+            .filter(InventorySnapshot.material_id == m.id)
+            .order_by(InventorySnapshot.observed_at.desc())
+            .first()
+        )
+        on_hand = snap.on_hand_quantity if snap else 800.0
+        reserved = snap.reserved_quantity if snap else 0.0
+
+        # Demand
+        demand_row = (
+            db.query(DemandForecast)
+            .filter(DemandForecast.material_id == m.id)
+            .first()
+        )
+        burn_rate = demand_row.daily_quantity if demand_row else 50.0
+
+        # Primary and alternate suppliers
+        sup_links = (
+            db.query(SupplierMaterial)
+            .filter(SupplierMaterial.material_id == m.id)
+            .all()
+        )
+        primary_sup = sup_links[0].supplier.legal_name if (sup_links and sup_links[0].supplier) else "Primary Supplier"
+        lead_time = sup_links[0].normal_lead_time_days if sup_links else 10.0
+
+        alternate_list = []
+        if len(sup_links) > 1:
+            for sm in sup_links[1:]:
+                if sm.supplier:
+                    alternate_list.append({
+                        "name": sm.supplier.legal_name,
+                        "lead_time_days": sm.normal_lead_time_days,
+                        "approved": sm.is_approved,
+                    })
+
+        crit_enum = MaterialCriticality.TIER_2
+        if m.criticality == "tier_1":
+            crit_enum = MaterialCriticality.TIER_1
+        elif m.criticality == "tier_3":
+            crit_enum = MaterialCriticality.TIER_3
+
+        exposure = evaluate_material_exposure(
+            material_id=m.id,
+            material_name=m.name,
+            criticality=crit_enum,
+            unit=m.canonical_unit,
+            on_hand_stock=on_hand,
+            reserved_stock=reserved,
+            daily_consumption=burn_rate,
+            start_date=start_d,
+            normal_receipts_by_date={},
+            normal_lead_time_days=lead_time,
+            stress_delay_days=6.0,
+            alternate_suppliers_count=len(alternate_list),
+        )
+
+        results.append({
+            "material_id": m.id,
+            "material_name": m.name,
+            "criticality": m.criticality,
+            "unit": m.canonical_unit,
+            "on_hand_stock": exposure.on_hand_stock,
+            "reserved_stock": exposure.reserved_stock,
+            "available_stock": exposure.available_stock,
+            "daily_consumption": exposure.daily_consumption,
+            "coverage_days": exposure.coverage_days,
+            "scenario_arrival_days": exposure.scenario_arrival_days,
+            "scenario_gap_days": exposure.scenario_gap_days,
+            "day_to_stockout": exposure.day_to_stockout,
+            "primary_supplier": primary_sup,
+            "has_alternate_supplier": exposure.has_alternate_supplier,
+            "alternate_suppliers": alternate_list,
+            "trajectory_base": [
+                {
+                    "day": p.day,
+                    "date_str": p.date_str,
+                    "balance": p.ending_balance,
+                    "is_stockout": p.is_stockout,
+                }
+                for p in exposure.trajectory_base
+            ],
+            "trajectory_stress": [
+                {
+                    "day": p.day,
+                    "date_str": p.date_str,
+                    "balance": p.ending_balance,
+                    "is_stockout": p.is_stockout,
+                }
+                for p in exposure.trajectory_stress
+            ],
+        })
+
+    return results

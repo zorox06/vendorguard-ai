@@ -1,0 +1,18 @@
+supplier_name,material_name,normal_lead_time_days,is_approved
+Apex Polymers Ltd,Polyethylene Resin HD-500,6.0,true
+Delta Resins & Chemicals,Polyethylene Resin HD-500,5.0,true
+NovaPlast Resins Corp,Polyethylene Resin LD-200,7.0,true
+Delta Resins & Chemicals,Polyethylene Resin LD-200,6.0,true
+FlexiFilm Global,High Barrier PVDC Film 25um,10.0,true
+ShieldBarrier Films,Biaxially-Oriented PP Film,8.0,true
+Horizon Logistics & Films,Biaxially-Oriented PP Film,10.0,true
+ChromaColor Labs,White Masterbatch MB-01,6.0,true
+SunPoly Masterbatches,White Masterbatch MB-01,5.0,true
+SunPoly Masterbatches,Slip Additive SA-90,7.0,true
+PackPro Corrugated Co,3-Ply Corrugated Shipping Cartons,4.0,true
+Midwest Carton Works,3-Ply Corrugated Shipping Cartons,5.0,true
+Precision Inks International,Solvent-Based Flexographic Inks,5.0,true
+EcoAdhesive Solutions,Hot-Melt Adhesive Granules,7.0,true
+Atlas Packaging Supply,Hot-Melt Adhesive Granules,6.0,true
+Vanguard Desiccant Corp,Silica Gel Desiccant Pouches,12.0,true
+PurePolymer Fine Chem,Slip Additive SA-90,8.0,true
