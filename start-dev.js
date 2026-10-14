@@ -81,7 +81,23 @@ async function main() {
     });
   }
 
-  // 2. Frontend (Next.js on Port 3000)
+  // 2. Durable Worker
+  const pythonExe = findPython();
+  console.log('\x1b[34m%s\x1b[0m', `→ Launching durable monitoring worker...`);
+  const worker = spawn(pythonExe, ['-m', 'backend.worker'], {
+    cwd: __dirname,
+    shell: false,
+  });
+  children.push(worker);
+
+  worker.stdout.on('data', (d) => {
+    process.stdout.write(`\x1b[33m[worker]\x1b[0m ${d}`);
+  });
+  worker.stderr.on('data', (d) => {
+    process.stderr.write(`\x1b[33m[worker]\x1b[0m ${d}`);
+  });
+
+  // 3. Frontend (Next.js on Port 3000)
   const webPortInUse = await isPortInUse(3000);
   if (webPortInUse) {
     console.log('\x1b[32m%s\x1b[0m', '✓ Next.js web application already running on http://localhost:3000');

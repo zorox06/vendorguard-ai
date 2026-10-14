@@ -74,18 +74,18 @@ export function MonitoringButton({ onMessage }: { onMessage: (message: string, e
   async function run() {
     try {
       await runMonitoring();
-      onMessage("Demo assessment ready. Inspect the calculation steps in Monitoring runs.");
-    } catch (error) { onMessage(error instanceof Error ? error.message : "Could not complete the walkthrough.", true); }
+      onMessage("Monitoring run initiated. Inspect execution status in Monitoring runs.");
+    } catch (error) { onMessage(error instanceof Error ? error.message : "Could not complete the monitoring cycle.", true); }
   }
-  return <button className="button primary" onClick={run} disabled={running || !hydrated}>{running ? <Loader2 className="spin" /> : <Play />}{running ? "Assessing demo…" : "Run demo assessment"}</button>;
+  return <button className="button primary" onClick={run} disabled={running || !hydrated}>{running ? <Loader2 className="spin" /> : <Play />}{running ? "Running cycle…" : "Run monitoring cycle"}</button>;
 }
 export function RunProgress() {
   const { running, progress, stage } = useData();
   if (!running) return null;
   return <div className="assessment-progress" role="status" aria-live="polite">
     <div><Loader2 className="spin" size={16} /><strong>{stage}</strong><span>{progress}%</span></div>
-    <div className="assessment-progress-track" role="progressbar" aria-label="Demo assessment progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>
-    <small>Frozen synthetic records · Local calculation walkthrough</small>
+    <div className="assessment-progress-track" role="progressbar" aria-label="Monitoring run progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div>
+    <small>Evaluating suppliers, inventory coverages, and active alerts</small>
   </div>;
 }
 export function GoLink({ href, children }: { href: string; children: React.ReactNode }) {

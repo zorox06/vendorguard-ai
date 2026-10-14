@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, Users, Package, Bell, Activity, Upload, BarChart3,
   Building2, ChevronRight, Menu, Search, ArrowUpRight, X, ShieldCheck,
-  ChevronsUpDown, Command, FlaskConical,
+  ChevronsUpDown, Command,
 } from "lucide-react";
 import { useData } from "./DataProvider";
 
@@ -78,8 +78,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Link>
       <div className="workspace">
         <span className="workspace-icon"><Building2 size={18} /></span>
-        <div><strong>Apex Packaging</strong><small>Operations workspace</small></div>
-        <span className="workspace-monogram">AP</span>
+        <div><strong>VendorGuard</strong><small>Operations workspace</small></div>
+        <span className="workspace-monogram">VG</span>
       </div>
       <div className="nav-label">WORKSPACE <span>01 — 04</span></div>
       <nav className="nav-section">{nav(primary)}</nav>
@@ -92,9 +92,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link href="/imports">Connect your data <ArrowUpRight size={14} /></Link>
         </div>
         <div className="user-profile">
-          <span className="avatar">AP</span>
-          <div><strong>Purchasing team</strong><small>Apex Packaging</small></div>
-          <span className="profile-indicator" aria-label="Demo workspace"><FlaskConical size={15} /></span>
+          <span className="avatar">VG</span>
+          <div><strong>Operations team</strong><small>VendorGuard</small></div>
+          <span className="profile-indicator" aria-label="Active workspace"><ShieldCheck size={15} /></span>
         </div>
       </div>
     </aside>
@@ -109,12 +109,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <button className="workspace-search" aria-label="Search workspace" onClick={openSearch}><Search size={15} /><span>Search workspace</span><kbd>Ctrl K</kbd></button>
           <span className="topbar-divider" />
           <Link className="icon-link" href="/alerts" aria-label={`${count} open alerts`}><Bell />{count > 0 && <span className="notification-dot" />}</Link>
-          <span className="avatar topbar-avatar" aria-label="Apex Packaging">AP</span>
+          <span className="avatar topbar-avatar" aria-label="VendorGuard">VG</span>
         </div>
       </header>
       <main className="page-content" id="main-content"><div key={pathname} className="page-enter">{children}</div></main>
       <footer className="app-footer">
-        <span><span className="dot" /> SYNTHETIC WORKSPACE <span className="footer-separator">/</span> Human decisions. Clear evidence.</span>
+        <span><span className="dot" /> OPERATIONAL WORKSPACE <span className="footer-separator">/</span> Human decisions. Clear evidence.</span>
         <span>VENDORGUARD <span className="footer-separator">/</span> V.01</span>
       </footer>
     </div>

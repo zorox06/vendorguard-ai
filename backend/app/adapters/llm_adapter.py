@@ -146,7 +146,7 @@ def build_deterministic_explanation_template(
         "evidence_date": ev_date,
         "impact_assumptions": impact_dict,
         "suggested_actions": suggested_actions,
-        "limitations": "Model outputs represent decision support scenarios based on declared replenishment parameters; external signals are synthetic fixtures.",
+        "limitations": "Model outputs represent decision support scenarios based on declared replenishment parameters and available external signals.",
     }
 
 
